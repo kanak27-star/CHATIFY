@@ -4,7 +4,7 @@ import FriendRequest from "../models/FriendRequest.js"
 
 export async function getRecommendedUsers(req,res){
    try{
-     const currentUserId=req.user.id;
+     const currentUserId=req.user._id;
      const currentUser = req.user
 
      const recommendedUsers = await User.find({
@@ -25,7 +25,7 @@ export async function getRecommendedUsers(req,res){
 
 export async function getMyFriends(req,res){
   try{
-     const user = await User.findById(req.user.id)
+     const user = await User.findById(req.user._id)
      .select("friends")
      .populate("friends","fullName profilePic nativeLanguage learningLanguage");
 
@@ -39,8 +39,11 @@ export async function getMyFriends(req,res){
 
 export async function sendFriendRequest(req,res){
   try{
-    const myId = req.user.id;
+    const myId = req.user._id;
     const { id:recipientId }= req.params
+
+    // Debug logging: helpful to identify why friend requests fail (400)
+    console.log(`sendFriendRequest called by user=${myId} for recipient=${recipientId}`);
 
     //prevent sending req to yourself
     if(myId==recipientId){
@@ -93,7 +96,7 @@ export async function acceptFriendRequest(req,res){
    }
 
    //verify the current user is the recipient
-   if(friendRequest.recipient.toString() != req.user.id){
+   if(friendRequest.recipient.toString() != req.user._id.toString()){
     return res.status(401).json({message:"You are not authorized to accept this request"});
    }
 
@@ -123,14 +126,14 @@ export async function getFriendRequests(req,res){
   try{
     const incomingReqs= await FriendRequest.find({
       //this gives pending request
-       recipient:req.user.id,
+       recipient:req.user._id,
        status:"pending"
     }).populate("sender","fullName profilePic nativeLanguage learningLanguage");
 
     //this gives accepted request
     const acceptedReqs= await FriendRequest.find({
       //this gives pending request
-       recipient:req.user.id,
+       recipient:req.user._id,
        status:"accepted"
     }).populate("recipient","fullName profilePic");
 
@@ -147,7 +150,7 @@ export async function getFriendRequests(req,res){
 export async function getOutgoingFriendReqs(req,res){
   try{
     const outgoingRequests = await FriendRequest.find({
-      sender:req.user.id,
+      sender:req.user._id,
       status:"pending"
     }).populate("recipient","fullName profilePic nativeLanguage learningLanguage");
 

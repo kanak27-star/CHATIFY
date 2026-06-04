@@ -28,15 +28,14 @@ export async  function signup(req,res){
       return res.status(400).json({message:"Email already exists,please use a different one"});
     }
 
-    const idx=Math.floor(Math.random()*100)+1;  //generate a num between 1-100
-    const randomAvatar = `https://avatar.iran.liara.run/public/${idx}.png`
-
+    // generate a seeded avatar using DiceBear based on the user's full name
+    const avatar = `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(fullName)}`;
 
     const newUser = await User.create({
       email,
       fullName,
       password,
-      profilePic:randomAvatar,
+      profilePic: avatar,
     });
      
    try{
@@ -61,12 +60,16 @@ export async  function signup(req,res){
       expiresIn:"7d"
       });
 
-    res.cookie("jwt",token,{
-      maxAge:7*24*60*60*1000,
-      httpOnly:true,  //prevent XSS attacks,
-      sameSite:"strict" , //prevent CSRF attacks
-      secure:process.env.NODE_ENV === "production"
-    });
+    const cookieOptions = {
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      httpOnly: true,
+      path: "/",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      secure: process.env.NODE_ENV === "production",
+      domain: process.env.NODE_ENV === "production" ? undefined : "localhost",
+    };
+
+    res.cookie("jwt", token, cookieOptions);
 
     res.status(201).json({success:true,user:newUser});
   }
@@ -90,6 +93,17 @@ export async function login(req,res){
      if(!isPasswordCorrect) 
       return res.status(401).json({message:"Invalid email or password"});
 
+    try {
+      await upsertStreamUser({
+        id: user._id.toString(),
+        name: user.fullName,
+        image: user.profilePic || "",
+      });
+      console.log(`Stream user ensured for ${user.fullName}`);
+    } catch (streamError) {
+      console.log("Error creating Stream user on login:", streamError);
+    }
+
      const token = jwt.sign(
       {userId:user._id},
       process.env.JWT_SECRET_KEY,
@@ -97,12 +111,16 @@ export async function login(req,res){
       expiresIn:"7d"
       });
 
-    res.cookie("jwt",token,{
-      maxAge:7*24*60*60*1000,
-      httpOnly:true,  //prevent XSS attacks,
-      sameSite:"strict" , //prevent CSRF attacks
-      secure:process.env.NODE_ENV === "production"
-    })
+    const cookieOptions = {
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      httpOnly: true,
+      path: "/",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      secure: process.env.NODE_ENV === "production",
+      domain: process.env.NODE_ENV === "production" ? undefined : "localhost",
+    };
+
+    res.cookie("jwt", token, cookieOptions);
 
     res.status(200).json({success:true,user});
   }
@@ -113,7 +131,16 @@ export async function login(req,res){
 }
 
 export  function logout(req,res){
-  res.clearCookie("jwt");
+  const cookieOptions = {
+    httpOnly: true,
+    path: "/",
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    secure: process.env.NODE_ENV === "production",
+    domain: process.env.NODE_ENV === "production" ? undefined : "localhost",
+  };
+
+  // Clear cookie with the same options used when setting it so browsers remove it correctly
+  res.clearCookie("jwt", cookieOptions);
   res.status(200).json({success:true,message:"Logout successful"});
 }
 

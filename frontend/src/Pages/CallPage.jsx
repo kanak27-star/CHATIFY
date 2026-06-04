@@ -17,7 +17,7 @@ import {
 
 import "@stream-io/video-react-sdk/dist/css/styles.css";
 import toast from "react-hot-toast";
-import PageLoader from "../components/PageLoader";
+import PageLoader from "../Components/PageLoader";
 
 const STREAM_API_KEY = import.meta.env.VITE_STREAM_API_KEY;
 
@@ -27,25 +27,39 @@ const CallPage = () => {
   const [call, setCall] = useState(null);
   const [isConnecting, setIsConnecting] = useState(true);
 
-  const { authUser, isLoading } = useAuthUser();
+  const { authUser, isLoading: authLoading } = useAuthUser();
 
-  const { data: tokenData } = useQuery({
+  const {
+    data: tokenData,
+    isLoading: tokenLoading,
+    isError: tokenError,
+  } = useQuery({
     queryKey: ["streamToken"],
-    queryFn: getStreamToken,
+    queryFn: () => getStreamToken(),
     enabled: !!authUser,
   });
 
   useEffect(() => {
     const initCall = async () => {
-      if (!tokenData.token || !authUser || !callId) return;
+      if (!authUser || !callId) {
+        setIsConnecting(false);
+        return;
+      }
+
+      if (tokenLoading) return;
+
+      if (!tokenData?.token || tokenError) {
+        setIsConnecting(false);
+        return;
+      }
 
       try {
         console.log("Initializing Stream video client...");
 
         const user = {
-          id: authUser._id,
+          id: authUser._id.toString(),
           name: authUser.fullName,
-          image: authUser.profilePic,
+          image: authUser.profilePic || "",
         };
 
         const videoClient = new StreamVideoClient({
@@ -71,9 +85,9 @@ const CallPage = () => {
     };
 
     initCall();
-  }, [tokenData, authUser, callId]);
+  }, [tokenData, authUser, callId, tokenLoading, tokenError]);
 
-  if (isLoading || isConnecting) return <PageLoader />;
+  if (authLoading || isConnecting || tokenLoading) return <PageLoader />;
 
   return (
     <div className="h-screen flex flex-col items-center justify-center">
@@ -100,7 +114,11 @@ const CallContent = () => {
 
   const navigate = useNavigate();
 
-  if (callingState === CallingState.LEFT) return navigate("/");
+  useEffect(() => {
+    if (callingState === CallingState.LEFT) {
+      navigate("/");
+    }
+  }, [callingState, navigate]);
 
   return (
     <StreamTheme>
