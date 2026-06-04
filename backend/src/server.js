@@ -10,13 +10,34 @@ import chatRoutes from "./routes/chat.route.js"
 
 import { connectDB } from "./lib/db.js";
 
-const app=express();
-const PORT =process.env.PORT;
+const app = express();
+const PORT = process.env.PORT;
 
-app.use(cors({
-  origin: [process.env.CORS_ORIGIN || "http://localhost:5173", "http://localhost:5174", "http://localhost:5175", "http://localhost:5176"],
-  credentials: true, // allow frontend to send cookies
-}));
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost:5174",
+  "http://localhost:5175",
+  "http://localhost:5176",
+];
+
+if (process.env.CORS_ORIGIN) {
+  allowedOrigins.push(
+    ...process.env.CORS_ORIGIN.split(",").map((origin) => origin.trim())
+  );
+}
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error(`CORS policy does not allow access from ${origin}`));
+      }
+    },
+    credentials: true,
+  })
+);
 app.use(express.json());
 app.use(cookieParser());
 
