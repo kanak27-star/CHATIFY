@@ -1,1 +1,1 @@
-demo link - chatify-e.vercel.app
+demo link - https://chatify-e.vercel.app/
